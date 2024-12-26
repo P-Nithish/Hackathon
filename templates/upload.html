@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload and Chat</title>
+    <link rel="stylesheet" href="static/upload.css">
+</head>
+<body>
+    <div class="header">
+    <h1>Welcome, {{ session['username'] }}!</h1>
+    <a href="/signout">Sign Out</a>
+    </div>
+    <!-- Ensure this ID matches with your JavaScript -->
+    <div id="chatWindow" class="chat-window">
+        {% for chat in chat_history %}
+        <div class="user-message">You: {{ chat.question }}</div>
+        <div class="bot-message">Bot: {{ chat.answer }}</div>
+        {% endfor %}
+        <!-- Chat messages will be added here dynamically -->
+    </div>
+    <div class="Inputs">
+        <div class="upload">
+            <h2>Upload File</h2>
+            <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
+                <input type="file" id="fileInput" name="file" multiple required>  <!-- Allow multiple files -->
+                <button type="submit">Upload</button>
+            </form>
+        </div>
+        
+        <div class="prompt">    
+        <h2>Ask a Question</h2>
+        <form id="chatForm">
+            <input type="text" id="question" placeholder="Enter your question" required>
+            <button type="submit">Ask</button>
+        </form>
+        </div>
+    </div>
+    
+    <script>
+        const chatForm = document.getElementById('chatForm');
+        chatForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const question = document.getElementById('question').value;
+            const chatWindow = document.getElementById('chatWindow');
+
+            // Display user's question
+            const userDiv = document.createElement('div');
+            userDiv.classList.add('user-message');
+            userDiv.textContent = "You: " + question;
+            chatWindow.appendChild(userDiv);
+
+            // Fetch and display the bot's response
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question }),
+                });
+
+                const result = await response.json();
+                const botResponse = result.answer || result.error || "No response from server";
+
+                // Display bot's response
+                const botDiv = document.createElement('div');
+                botDiv.classList.add('bot-message');
+
+                if (botResponse.includes("I'm sorry, the provided context does not contain sufficient information")) {
+                    botDiv.style.color = "red";  // Make this response visually distinct
+                }
+
+                botDiv.textContent = "Bot: " + botResponse;
+                chatWindow.appendChild(botDiv);
+
+                // Scroll to the bottom of the chat window to show the latest message
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            } catch (error) {
+                console.error("Error fetching bot response:", error);
+
+                // Display an error message in the chat window
+                const botDiv = document.createElement('div');
+                botDiv.classList.add('bot-message');
+                botDiv.style.color = "red";
+                botDiv.textContent = "Bot: An error occurred. Please try again later.";
+                chatWindow.appendChild(botDiv);
+            }
+        });
+        document.getElementById("uploadForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const fileInput = document.getElementById("fileInput");
+            const formData = new FormData();
+            for (const file of fileInput.files) {  // Append each file to the FormData object
+                formData.append("file", file);
+            }
+
+            try {
+                const response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData,
+                });
+                if (!response.ok) throw new Error('Failed to upload');
+                
+                const result = await response.json();
+                alert(result.message || result.error);
+            } catch (error) {
+                console.error(error);
+                alert("Failed to upload the files.");
+            }
+        });
+    </script>
+</body>
+</html>

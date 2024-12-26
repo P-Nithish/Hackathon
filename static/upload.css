@@ -1,0 +1,112 @@
+/* General Styles */
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    background-color: #e9ecef; /* Light grey background */
+}
+
+/* Header styling */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #007bff; /* Bootstrap blue */
+    color: white;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.header a {
+    color: white;
+    text-decoration: none;
+    background-color: #dc3545; /* Bootstrap red */
+    padding: 8px 16px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.header a:hover {
+    background-color: #c82333; /* Darker red */
+}
+
+/* Chat window styling */
+#chatWindow {
+    width: 90%;
+    height: 400px;
+    margin: 5px auto;
+    overflow-y: auto;
+    background-color: #f4f4f4;
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.user-message, .bot-message {
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.user-message {
+    background-color: #bde0fe; /* Light blue for user messages */
+    text-align: right;
+}
+
+.bot-message {
+    background-color: #d1d1d1; /* Grey for bot responses */
+    text-align: left;
+}
+
+/* Form and Input Areas */
+.Inputs {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px;
+    background: #f8f9fa; /* Lightest grey */
+}
+
+.upload, .prompt {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: calc(50% - 40px); /* Calculation to include margin */
+    margin: 10px;
+}
+
+.upload h2, .prompt h2 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+input[type="file"], input[type="text"], button {
+    width: 90%;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 4px;
+    border: 1px solid #ced4da; /* Bootstrap input border color */
+}
+
+button {
+    background-color: #007bff; /* Bootstrap blue */
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #0056b8; /* Darker blue */
+}
