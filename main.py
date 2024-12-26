@@ -9,26 +9,21 @@ from docx import Document
 
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'  # Change this to a secure key in production
+app.secret_key = 'supersecretkey'
 bcrypt = Bcrypt(app)
 
-# Configure Groq API Client
 client = Groq(api_key="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")
 
-# Connect to MongoDB
 client_db = MongoClient("mongodb://localhost:27017/")
 db = client_db.chatbot_app
 users_collection = db.users
 
-# Directory to store uploaded files
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Global variable to store extracted text
 parsed_data = ""
 
-# Function to extract text from files
 def extract_text_from_file(filepath):
     if filepath.endswith(".txt"):
         with open(filepath, 'r', encoding='utf-8') as file:
@@ -46,26 +41,22 @@ def extract_text_from_file(filepath):
     else:
         raise ValueError("Unsupported file type")
 
-# Home Route (Sign-in Page)
 @app.route("/")
 def index():
     if 'username' in session:
         return redirect(url_for('upload_page'))
     return render_template("signin.html")
 
-# Sign-up Page
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
 
-        # Check if username already exists
         if users_collection.find_one({"username": username}):
             flash('Username already exists', 'error')
             return redirect(url_for('signup'))
 
-        # Hash the password and store the user
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
         users_collection.insert_one({"username": username, "password": hashed_password})
         flash('Signup successful! You can now login.', 'success')
@@ -73,7 +64,6 @@ def signup():
 
     return render_template("signup.html")
 
-# Sign-in Route
 @app.route("/signin", methods=["GET","POST"])
 def signin():
     username = request.form.get("username")
@@ -81,20 +71,18 @@ def signin():
 
     user = users_collection.find_one({"username": username})
     if user and bcrypt.check_password_hash(user["password"], password):
-        session['username'] = username  # Set the session
+        session['username'] = username  
         return redirect(url_for('upload_page'))
     flash('Invalid credentials', 'error')
     return redirect(url_for('index'))
 
-# Sign-out Route
 @app.route("/signout")
 def signout():
-    session.pop('username', None)  # Clear the session
+    session.pop('username', None) 
     global parsed_data
     parsed_data = ""
     return redirect(url_for('index'))
 
-# Fetch Chat History Route
 @app.route("/chat_history", methods=["GET"])
 def chat_history():
     if 'username' not in session:
@@ -102,43 +90,39 @@ def chat_history():
 
     user = users_collection.find_one({"username": session['username']})
     if not user or "chats" not in user:
-        return jsonify({"chats": []})  # Return an empty list if no chat history exists
-
+        return jsonify({"chats": []}) 
     return jsonify({"chats": user["chats"]}), 200
 
 
-# File Upload Page
 @app.route("/upload_page")
 def upload_page():
     if 'username' not in session:
         return redirect(url_for('index'))
     
-    # Retrieve chat history for the logged-in user
     user = users_collection.find_one({"username": session['username']})
     chat_history = user.get("chats", []) if user else []
     
     return render_template("upload.html", chat_history=chat_history)
 
 
-# Upload Route
 @app.route("/upload", methods=["POST"])
 def upload():
-    global parsed_data  # This holds all text from all uploaded files
+    global parsed_data 
     if 'username' not in session:
         return jsonify({"error": "Unauthorized"}), 401
     
-    files = request.files.getlist("file")  # Get list of files from the form
+    files = request.files.getlist("file")
     if not files:
         return jsonify({"error": "No file uploaded"}), 400
 
     for file in files:
-        if file:  # Make sure a file is present
+        if file: 
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             try:
                 file.save(filepath)
                 file_text = extract_text_from_file(filepath)
-                parsed_data += file_text + "\n"  # Append new text to the existing content
+                parsed_data += file_text + "\n" 
             except Exception as e:
                 return jsonify({"error": f"Failed to extract content from file {filename}: {str(e)}"}), 500
 
@@ -158,7 +142,6 @@ def reduce_text_size(text, max_tokens=3000):
     
     return reduced_text
 
-# Chatbot Route
 @app.route("/chat", methods=["POST"])
 def chat():
     global parsed_data
@@ -173,8 +156,6 @@ def chat():
         return jsonify({"error": "No file content available. Please upload a file first."})
     
     parsed_data = reduce_text_size(parsed_data)
-
-    # Use Groq API with Llama model to generate a response based on file content and question
     prompt = f"""
     You are an intelligent assistant that answers questions accurately and concisely based only on the given context. 
     Do not include any information that is not explicitly provided in the context below.
