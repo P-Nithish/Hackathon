@@ -10,19 +10,17 @@
     <h1>Welcome, {{ session['username'] }}!</h1>
     <a href="/signout">Sign Out</a>
     </div>
-    <!-- Ensure this ID matches with your JavaScript -->
     <div id="chatWindow" class="chat-window">
         {% for chat in chat_history %}
         <div class="user-message">You: {{ chat.question }}</div>
         <div class="bot-message">Bot: {{ chat.answer }}</div>
         {% endfor %}
-        <!-- Chat messages will be added here dynamically -->
     </div>
     <div class="Inputs">
         <div class="upload">
             <h2>Upload File</h2>
             <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
-                <input type="file" id="fileInput" name="file" multiple required>  <!-- Allow multiple files -->
+                <input type="file" id="fileInput" name="file" multiple required> 
                 <button type="submit">Upload</button>
             </form>
         </div>
@@ -43,13 +41,11 @@
             const question = document.getElementById('question').value;
             const chatWindow = document.getElementById('chatWindow');
 
-            // Display user's question
             const userDiv = document.createElement('div');
             userDiv.classList.add('user-message');
             userDiv.textContent = "You: " + question;
             chatWindow.appendChild(userDiv);
 
-            // Fetch and display the bot's response
             try {
                 const response = await fetch('/chat', {
                     method: 'POST',
@@ -60,24 +56,21 @@
                 const result = await response.json();
                 const botResponse = result.answer || result.error || "No response from server";
 
-                // Display bot's response
                 const botDiv = document.createElement('div');
                 botDiv.classList.add('bot-message');
 
                 if (botResponse.includes("I'm sorry, the provided context does not contain sufficient information")) {
-                    botDiv.style.color = "red";  // Make this response visually distinct
+                    botDiv.style.color = "red"; 
                 }
 
                 botDiv.textContent = "Bot: " + botResponse;
                 chatWindow.appendChild(botDiv);
 
-                // Scroll to the bottom of the chat window to show the latest message
                 chatWindow.scrollTop = chatWindow.scrollHeight;
 
             } catch (error) {
                 console.error("Error fetching bot response:", error);
 
-                // Display an error message in the chat window
                 const botDiv = document.createElement('div');
                 botDiv.classList.add('bot-message');
                 botDiv.style.color = "red";
@@ -89,7 +82,7 @@
             event.preventDefault();
             const fileInput = document.getElementById("fileInput");
             const formData = new FormData();
-            for (const file of fileInput.files) {  // Append each file to the FormData object
+            for (const file of fileInput.files) {
                 formData.append("file", file);
             }
 
