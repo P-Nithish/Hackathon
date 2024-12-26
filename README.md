@@ -53,5 +53,7 @@ This project is a Flask-based chatbot application that interfaces with a MongoDB
 
 ## Output
 ---
-<img src="https://github.com/P-Nithish/Github-Interactive-API-App/blob/main/img1.PNG](https://github.com/P-Nithish/Hackathon/blob/main/image.png">
+<img src="https://github.com/P-Nithish/Hackathon/blob/main/img1.png">
+<img src="https://github.com/P-Nithish/Hackathon/blob/main/img2.png">
+<img src="https://github.com/P-Nithish/Hackathon/blob/main/image.png">
 
