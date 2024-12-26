@@ -1,15 +1,13 @@
-/* General reset */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* Body Styling */
 body {
     font-family: 'Arial', sans-serif;
-    background-color: #f4f7f6; /* Light background */
-    color: #333; /* Dark text for contrast */
+    background-color: #f4f7f6; 
+    color: #333; 
     display: flex;
     justify-content: center;
     align-items: center;
@@ -18,7 +16,6 @@ body {
 }
 
 
-/* Heading Styling */
 h1 {
     font-size: 36px;
     color: #007bff;
@@ -26,7 +23,6 @@ h1 {
     text-align: center;
 }
 
-/* Form Styling */
 form {
     background-color: #fff;
     padding: 30px;
@@ -47,28 +43,27 @@ form {
 }
 
 .flash-messages li {
-    background-color: #f4f4f4; /* Light gray background, change as needed */
-    border-left: 5px solid; /* Color will be set by the category */
+    background-color: #f4f4f4;
+    border-left: 5px solid; 
     margin-bottom: 5px;
     padding: 10px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    width: 300px; /* Fixed width, you can adjust */
+    width: 300px; 
 }
 
 .flash-messages .error {
-    border-color: #dc3545; /* Bootstrap red */
+    border-color: #dc3545;
     background-color: #f8d7da;
     color: #721c24;
 }
 
 .flash-messages .success {
-    border-color: #28a745; /* Bootstrap green */
+    border-color: #28a745; 
     background-color: #d4edda;
     color: #155724;
 }
 
 
-/* Label and Input Styling */
 label {
     font-size: 16px;
     color: #333;
@@ -93,7 +88,6 @@ input[type="text"]:focus, input[type="password"]:focus {
     background-color: #f1f9ff;
 }
 
-/* Button Styling */
 button {
     width: 100%;
     padding: 12px;
@@ -110,7 +104,6 @@ button:hover {
     background-color: #0056b3;
 }
 
-/* Link Styling */
 p {
     margin-top: 10px;
     font-size: 14px;
@@ -127,8 +120,6 @@ p a:hover {
 }
 
 
-
-/* Responsive Design */
 @media (max-width: 768px) {
     body {
         padding: 20px;
