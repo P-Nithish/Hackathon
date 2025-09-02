@@ -1,657 +1,663 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-
-n = np.array([i for i in range(1, 17)])
-an = np.array([3, 6, 11, 21, 32, 47, 65, 87, 112, 110, 171, 204, 241, 282, 325, 376])
-
-delan = [an[0]]
-for i in range(1, len(an)):
-    delan.append(an[i] - an[i-1])
-
-plt.plot(n, an, label='Stopping Distance')
-plt.scatter(n, an, color='red')
-plt.title('Stopping Distance vs Speed')
-plt.xlabel('Speed (n)')
-plt.ylabel('Distance (an)')
-plt.grid(True)
-plt.legend()
-plt.show()
-
-plt.plot(n, delan, label='∆an')
-plt.scatter(n, delan, color='orange')
-plt.title('First Differences (∆an) vs Speed')
-plt.xlabel('Speed (n)')
-plt.ylabel('∆an')
-plt.grid(True)
-plt.legend()
-plt.show()
-
-def newton_divided_diff(x, y):
-    n = len(x)
-    F = np.zeros((n, n))
-    F[:, 0] = y
-    for j in range(1, n):
-        for i in range(n - j):
-            F[i, j] = (F[i + 1, j - 1] - F[i, j - 1]) / (x[i + j] - x[i])
-    return F
-
-def newton_polynomial(x, y, xi):
-    F = newton_divided_diff(x, y)
-    n = len(x)
-    result = F[0, 0]
-    product = 1
-    for i in range(1, n):
-        product *= (xi - x[i - 1])
-        result += F[0, i] * product
-    return result
-
-F = newton_divided_diff(n, an)
-columns = ['f(x)'] + [f'fa  [xi, xi+{i+1}]' for i in range(len(n) - 1)]
-div_diff_table = pd.DataFrame(F, index=[f'x{i}' for i in range(len(n))], columns=columns)
-print("\nNewton's Divided Difference Table:")
-print(div_diff_table)
-
-full_coeffs = F[0, :]
-poly_expr = ""
-product_term = ""
-for i in range(len(full_coeffs)):
-    if i > 0:
-        product_term += f"(x - {n[i-1]})"
-        poly_expr += f" + ({full_coeffs[i]:.4f})*({product_term})"
-    else:
-        poly_expr += f"({full_coeffs[i]:.4f})"
-
-predicted_an = np.array([newton_polynomial(n, an, x) for x in n])
-
-errors = an - predicted_an
-rmse = np.sqrt(np.mean(errors ** 2))
-
-plt.figure(figsize=(10, 5))
-plt.plot(n, an, 'bo-', label='Actual Stopping Distance')
-plt.plot(n, predicted_an, 'r*--', label='Predicted (Newton Polynomial)')
-plt.xlabel("Speed (n, mph)")
-plt.ylabel("Stopping Distance (ft)")
-plt.title("Actual vs Predicted Stopping Distance (Newton Polynomial)")
-plt.grid(True)
-plt.legend()
-plt.show()
-
-print("\nFull Newton Polynomial Expression (Symbolic Form):")
-print("f(x) ≈", poly_expr)
-print(f"\nRMSE (Error): {rmse:.4f} ft")
-print("\nActual vs Predicted Stopping Distances:")
-for i in range(len(n)):
-    print(f"Speed = {n[i]} mph, Actual = {an[i]} ft, Predicted = {predicted_an[i]:.2f} ft, Error = {errors[i]:.2f} ft")
-
-quad_coeffs = np.polyfit(n, an, 2)
-quad_poly = np.poly1d(quad_coeffs)
-quad_predicted = quad_poly(n)
-quad_rmse = np.sqrt(np.mean((an - quad_predicted) ** 2))
-
-plt.figure(figsize=(10, 5))
-plt.plot(n, an, 'bo-', label='Actual Stopping Distance')
-plt.plot(n, quad_predicted, 'g^--', label='Quadratic Model')
-plt.xlabel("Speed (n, mph)")
-plt.ylabel("Stopping Distance (ft)")
-plt.title("Quadratic Fit vs Actual Data")
-plt.grid(True)
-plt.legend()
-plt.show()
-
-----------------------------------------------------------------
-
-
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-from scipy.stats import ttest_ind
-import math
-
-force = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90])
-stretch = np.array([19, 57, 94, 134, 173, 216, 256, 297, 343])
-h = force[1] - force[0]
-
-def newton_forward_diff_table(x, y):
-    n = len(y)
-    diff_table = np.zeros((n, n))
-    diff_table[:, 0] = y
-    for j in range(1, n):
-        for i in range(n - j):
-            diff_table[i][j] = diff_table[i + 1][j - 1] - diff_table[i][j - 1]
-    return diff_table
-
-def newton_forward_interpolation(x, x_values, diff_table, h):
-    u = (x - x_values[0]) / h
-    result = diff_table[0][0]
-    u_term = 1
-    for i in range(1, len(x_values)):
-        u_term *= (u - (i - 1))
-        result += (u_term * diff_table[0][i]) / math.factorial(i)
-    return result
-
-diff_table = newton_forward_diff_table(force, stretch)
-interpolated_points = [15, 17, 85]
-interpolated_stretch = [newton_forward_interpolation(x, force, diff_table, h) for x in interpolated_points]
-
-print("Interpolated Stretch Values:")
-for x, y in zip(interpolated_points, interpolated_stretch):
-    print(f"Force = {x}: Stretch ≈ {y:.2f}")
-
-x_plot = np.linspace(10, 90, 500)
-y_plot = [newton_forward_interpolation(xi, force, diff_table, h) for xi in x_plot]
-
-plt.figure(figsize=(8, 6))
-plt.plot(force, stretch, 'bo-', label='Original Data')
-plt.plot(x_plot, y_plot, 'r--', label='Interpolated Polynomial')
-plt.scatter(interpolated_points, interpolated_stretch, color='green', label='Interpolated Values')
-plt.xlabel('Force')
-plt.ylabel('Stretch')
-plt.title('Newton Forward Interpolation')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-predicted_stretch = [newton_forward_interpolation(x, force, diff_table, h) for x in force]
-errors = stretch - predicted_stretch
-
-print("\nErrors at Known Points (Actual - Predicted):")
-for x, err in zip(force, errors):
-    print(f"Force = {x}: Error ≈ {err:.2f}")
-
-plt.figure(figsize=(8, 6))
-plt.plot(force, errors, 'm*-', label='Error (Actual - Predicted)')
-plt.xlabel('Force')
-plt.ylabel('Error')
-plt.title('Prediction Error at Known Points')
-plt.grid(True)
-plt.legend()
-plt.show()
-
-np.random.seed(42)
-spring_constants = np.random.uniform(1, 5, 5)
-simulated_data = [k * force + np.random.normal(0, 5, size=force.shape) for k in spring_constants]
-
-print("\nT-test Results for Simulated Data vs. Original Data:")
-for i, sim in enumerate(simulated_data):
-    t_stat, p_val = ttest_ind(stretch, sim)
-    print(f"Simulation {i + 1} (Spring Constant ≈ {spring_constants[i]:.2f}):")
-    print(f"  t-statistic ≈ {t_stat:.2f}, p-value ≈ {p_val:.3f}")
-
-
------------------------------------------------------------------------------
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-T = np.array([300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000])
-e = np.array([0.024, 0.035, 0.046, 0.058, 0.067, 0.083, 0.097, 0.111, 0.125, 0.140, 0.155, 0.170, 0.186, 0.202, 0.219, 0.235, 0.252, 0.269])
-
-def original_formula(T):
-    return 0.02424 * (T / 303.16) ** 1.27591
-
-def newton_divided_diff(x, y):
-    n = len(y)
-    coef = np.zeros(n)
-    coef[0] = y[0]
-    table = np.zeros((n, n))
-    table[:, 0] = y
-
-    for j in range(1, n):
-        for i in range(n - j):
-            table[i, j] = (table[i + 1, j - 1] - table[i, j - 1]) / (x[i + j] - x[i])
-        coef[j] = table[0, j]
-    return coef
-
-def newton_eval(x, x_data, coef):
-    result = coef[0]
-    term = 1
-    for i in range(1, len(coef)):
-        term *= (x - x_data[i - 1])
-        result += coef[i] * term
-    return result
-
-newton_coefs = newton_divided_diff(T, e)
-newton_values = [newton_eval(x, T, newton_coefs) for x in [0.5, 3]]
-
-def lagrange_interpolation(x, x_data, y_data):
-    n = len(x_data)
-    result = 0
-    for i in range(n):
-        term = y_data[i]
-        for j in range(n):
-            if j != i:
-                term *= (x - x_data[j]) / (x_data[i] - x_data[j])
-        result += term
-    return result
-
-lagrange_values = [lagrange_interpolation(x, T, e) for x in [0.5, 3]]
-
-print("Newton Divided Difference Interpolation:")
-for x, val in zip([0.5, 3], newton_values):
-    print(f"T = {x}: e ≈ {val:.6f}")
-
-print("\nLagrange Interpolation:")
-for x, val in zip([0.5, 3], lagrange_values):
-    print(f"T = {x}: e ≈ {val:.6f}")
-
-print("\nOriginal Formula Values:")
-for x in [0.5, 3]:
-    val = original_formula(x)
-    print(f"T = {x}: e ≈ {val:.6f}")
-
-x_plot = np.linspace(300, 2000, 500)
-newton_plot = [newton_eval(xi, T, newton_coefs) for xi in x_plot]
-original_plot = [original_formula(xi) for xi in x_plot]
-
-plt.figure(figsize=(10, 6))
-plt.plot(T, e, 'bo', label='Given Data Points')
-plt.plot(x_plot, newton_plot, 'r-', label='Newton Interpolating Polynomial')
-plt.plot(x_plot, original_plot, 'g--', label='Original Formula')
-plt.xlabel('Temperature (K)')
-plt.ylabel('Emittance')
-plt.title('Emittance vs Temperature')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-newton_at_data = [newton_eval(xi, T, newton_coefs) for xi in T]
-errors = e - newton_at_data
-print("\nErrors at Data Points (Actual - Interpolated):")
-for t, err in zip(T, errors):
-    print(f"T = {t}: Error ≈ {err:.6f}")
-
-original_at_data = [original_formula(t) for t in T]
-print("\nOriginal Formula vs. Actual Data:")
-for t, actual, orig in zip(T, e, original_at_data):
-    print(f"T = {t}: Actual e = {actual:.3f}, Formula e ≈ {orig:.3f}, Difference ≈ {actual - orig:.6f}")
-
-
-----------------------------------------------------------------------
-
-
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Aug 30 06:53:44 2025
-
-@author: nithi
-"""
-
-# -*- coding: utf-8 -*-
-"""MML presentation.ipynb
-
-Automatically generated by Colab.
-
-Original file is located at
-    https://colab.research.google.com/drive/1FEAlBxeEHTuVPb3ndLzKwqh3AfeyiIBn
-"""
-
-import random
-import sympy as sp
-import numpy as np
-import matplotlib.pyplot as plt
-
-"""
-n = 20
-x = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-f = [3, 4, 7, 1, 5, 9, 2, 6, 3, 8,4, 7, 0, 5, 6, 2, 4, 1, 9, 3]
-"""
-
-n = 4
-x = [3,4.5,7,9]
-f = [2.5,1,2.5,0.5]
-
-def spline_equation_row(xi_minus1, xi, xi_plus1, f_xi_minus1, f_xi, f_xi_plus1):
-    a = xi - xi_minus1
-    b = 2 * (xi_plus1 - xi_minus1)
-    c = xi_plus1 - xi
-    rhs = (6 / (xi_plus1 - xi)) * (f_xi_plus1 - f_xi) - (6 / (xi - xi_minus1)) * (f_xi - f_xi_minus1)
-    return a, b, c, rhs
-
-variables = sp.symbols(f'f\'\'1:{n-1}')
-equations = []
-print("--------",variables)
-for i in range(1, n - 1):
-    a, b, c, rhs = spline_equation_row(x[i - 1], x[i], x[i + 1], f[i - 1], f[i], f[i + 1])
-    row = 0
-    if i > 1:
-        row += a * variables[i - 2]
-    print("***",row)
-    row += b * variables[i - 1]
-    print("*****",row)
-    if i < n - 2:
-        row += c * variables[i]
-    print("*****",row)
-    equations.append(sp.Eq(row, rhs))
-    print(equations,"-=-=-=-=")
-
-sol = sp.solve(equations, variables)
-print(sol,'----====')
-fpp = [0] + [sol[v] for v in variables] + [0]
-
-def cubic_spline_interpolation(x_val, xi, xi1, fxi, fxi1, fppi, fppi1):
-    h = xi1 - xi
-    term1 = fppi * ((xi1 - x_val) ** 3) / (6 * h)
-    term2 = fppi1 * ((x_val - xi) ** 3) / (6 * h)
-    term3 = (fxi / h - fppi * h / 6) * (xi1 - x_val)
-    term4 = (fxi1 / h - fppi1 * h / 6) * (x_val - xi)
-    print(f"{term1}+{term2}+{term3}+{term4}")
-    return term1 + term2 + term3 + term4
-
-X_vals = []
-Y_vals = []
-
-for i in range(n - 1):
-    xs = np.linspace(x[i],x[i+1],100)
-    ys = [cubic_spline_interpolation(xv, x[i], x[i + 1], f[i], f[i + 1], fpp[i], fpp[i + 1]) for xv in xs]
-    X_vals.extend(xs)
-    Y_vals.extend(ys)
-
-
-plt.figure(figsize=(12, 6))
-plt.plot(X_vals, Y_vals, label="Cubic Spline", color="blue")
-plt.plot(x, f, 'ro', label="Data Points")
-plt.title("Cubic Spline Interpolation")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-interpolated_y_vals=[]
-x_vals=[5,4.5]
-
-for x_val in x_vals:
-  for i in range(n - 1):
-      if x[i] <= x_val <= x[i + 1]:
-          y_val = cubic_spline_interpolation(
-              x_val, x[i], x[i + 1],
-              f[i], f[i + 1],
-              fpp[i], fpp[i + 1]
-          )
-          interpolated_y_vals.append(y_val)
-          print(f"interpolated value at x = {x_val} is {y_val}")
-          break
-
-print("System of Linear Equations for f'' values (formatted):\n")
-for eq in equations:
-    lhs = sp.simplify(eq.lhs)
-    rhs = sp.simplify(eq.rhs)
-    print(f"{lhs} = {rhs}")
-
-print('\n\nSolutions of the above equations are :- \n')
-for i in range(0, n):
-    print(f"f''{i} = {fpp[i]}")
-
-x_sym = sp.Symbol('x')
-spline_functions = []
-
-print("Cubic Spline Functions for Each Interval:\n")
-
-for i in range(n - 1):
-    xi = x[i]
-    xi1 = x[i + 1]
-    h = xi1 - xi
-    fxi = f[i]
-    fxi1 = f[i + 1]
-    fppi = fpp[i]
-    fppi1 = fpp[i + 1]
-
-    term1 = fppi * ((xi1 - x_sym) ** 3) / (6 * h)
-    term2 = fppi1 * ((x_sym - xi) ** 3) / (6 * h)
-    term3 = (fxi / h - fppi * h / 6) * (xi1 - x_sym)
-    term4 = (fxi1 / h - fppi1 * h / 6) * (x_sym - xi)
-
-    Si = sp.simplify(term1 + term2 + term3 + term4)
-    spline_functions.append(Si)
-
-    print(f"S{i}(x) for interval [{xi}, {xi1}]:")
-    print(Si)
-    print()
-
-
-----------------------------------------------------------------------
-
-
-
-import numpy as np
-import matplotlib.pyplot as plt
-import math
-
-def standard_normal_pdf(x):
-    return math.exp(-x**2 / 2) / math.sqrt(2 * math.pi)
-
-def trapezoidal_rule(f, a, b, n):
-    h = (b - a) / (n - 1)
-    res = f(a)
-    for i in range(1, n-1):
-      a += h
-      res += 2 * f(a)
-    res += f(b)
-    return (h / 2) * res
-
-def simpsons_rule(f, a, b, n):
-  #Note that the method can be employed only if the number of segments is even.
-    if n % 2 == 0:
-        n += 1
-    h = (b - a) / (n - 1)
-    result = f(a) + f(b)
-    for i in range(1, n - 1):
-        a += h
-        if i % 2 == 0:
-            result += 2 * f(a)
+"-----------------------------------------------------------------------------------"
+"""                    BOOLEAN CONJUNCTIVE QUERY (WITH BRACKETS)                  """
+"-----------------------------------------------------------------------------------"
+import re
+import collections
+
+
+# EXTRACTING DOCUMENTS FROM TEXT :
+def extract_documents_from_string(text):
+    documents = {}
+    parts = re.split(r'(Document\s+\d+)', text)
+    current_doc_num = None
+    current_doc_content = []
+
+    for part in parts:
+        if part.startswith('Document'):
+            if current_doc_num is not None and current_doc_content:
+                documents[current_doc_num] = "".join(current_doc_content).strip()
+                current_doc_content = []
+            match = re.search(r'Document\s+(\d+)', part)
+            if match:
+                current_doc_num = int(match.group(1))
+        elif current_doc_num is not None:
+            lines = part.splitlines()
+            content_lines = [line for line in lines if "********************************************" not in line]
+            current_doc_content.extend(content_lines)
+
+    if current_doc_num is not None and current_doc_content:
+         documents[current_doc_num] = "".join(current_doc_content).strip()
+    return documents
+
+
+# READING FILE :
+with open("documents.txt", 'r', encoding='utf-8') as f:
+    file_content_from_drive = f.read()
+extracted_docs = extract_documents_from_string(file_content_from_drive)
+for i, (doc_num, content) in enumerate(extracted_docs.items()): #printing only 5 docs
+    if i >= 5:
+        break
+    print(f"--- Document {doc_num} ---")
+    print(content)
+    print("-" * 20)
+
+
+# CREATING INVERTED INDEX AND PROCESS SIMPLE BOOLEAN QUERIES :
+def create_inverted_index(documents):
+    inverted_index = collections.defaultdict(list)
+    for doc_num, content in documents.items():
+        words = re.findall(r'\b\w+\b', content.lower())
+        for word in words:
+            if doc_num not in inverted_index[word]:
+                inverted_index[word].append(doc_num)
+    return inverted_index
+
+def remove_stop_words(inverted_index, num_stop_words=10):
+    word_frequencies = sorted(inverted_index.items(), key=lambda item: len(item[1]), reverse=True)
+    stop_words = [word for word, _ in word_frequencies[:num_stop_words]]
+    new_index = {word: postings for word, postings in inverted_index.items() if word not in stop_words}
+    return new_index, stop_words
+
+def tokenize_query(query):
+    # Tokenize: words, AND, OR, NOT, and parentheses
+    return re.findall(r'\b\w+\b|AND|OR|NOT|\(|\)', query.upper())
+
+def eval_boolean_query(tokens, inverted_index, all_docs):
+    def eval_expr(tokens):
+        def parse_operand():
+            token = tokens.pop(0)
+            if token == '(':
+                result = parse_or()
+                tokens.pop(0)
+                return result
+            elif token == 'NOT':
+                operand = parse_operand()
+                return all_docs - operand
+            else:
+                return set(inverted_index.get(token.lower(), []))
+
+        def parse_and():
+            left = parse_operand()
+            while tokens and tokens[0] == 'AND':
+                tokens.pop(0)
+                right = parse_operand()
+                left = left & right
+            return left
+
+        def parse_or():
+            left = parse_and()
+            while tokens and tokens[0] == 'OR':
+                tokens.pop(0)
+                right = parse_and()
+                left = left | right
+            return left
+
+        return parse_or()
+
+    return sorted(list(eval_expr(tokens)))
+
+
+# MAIN FUNCTION :
+inverted_index = create_inverted_index(extracted_docs)
+inverted_index_no_stopwords, stop_words = remove_stop_words(inverted_index)
+
+all_doc_ids = set(extracted_docs.keys())
+
+initial_index_size = len(inverted_index)
+index_size_no_stopwords = len(inverted_index_no_stopwords)
+print(f"Initial index size (unique terms): {initial_index_size}")
+print(f"Index size after removing stop words: {index_size_no_stopwords}")
+print("-" * 50)
+
+# Example Queries
+queries = [
+    "london AND ltd",
+    "training AND services",
+    "council OR service",
+    "training AND NOT services",
+    "(council OR training) AND NOT service",
+    "library and training or services and council"
+]
+
+for query in queries:
+    tokens = tokenize_query(query)
+    results = eval_boolean_query(tokens, inverted_index_no_stopwords, all_doc_ids)
+    print(f"Results for query '{query}': {results}")
+    print("-" * 50)
+
+
+# CNF IMPLEMENTATION :
+def evaluate_cnf_query(inverted_index, cnf_query):
+    clauses = [clause.strip() for clause in cnf_query.lower().split(' and ')]
+    doc_sets = []
+
+    for clause in clauses:
+        # Split terms by OR
+        terms = [term.strip() for term in clause.split(' or ')]
+        postings_lists = [set(inverted_index.get(term, [])) for term in terms]
+        if not postings_lists:
+            continue
+        # OR within a clause
+        clause_docs = set.union(*postings_lists)
+        doc_sets.append(clause_docs)
+    if not doc_sets:
+        return []
+    result_docs = set.intersection(*doc_sets)
+    return sorted(list(result_docs))
+
+
+# DNF IMPLEMENTATION :
+def evaluate_dnf_query(inverted_index, dnf_query):
+    # Split terms by OR to get individual conjunctions
+    and_groups = [group.strip() for group in dnf_query.lower().split(' or ')]
+    result_docs = set()
+
+    for group in and_groups:
+        terms = [term.strip() for term in group.split(' and ')]
+        postings_lists = [set(inverted_index.get(term, [])) for term in terms]
+        if not postings_lists:
+            continue
+        # AND within a group
+        group_docs = set.intersection(*postings_lists)
+        result_docs.update(group_docs)
+
+    return sorted(list(result_docs))
+
+
+# CONJUCTIVE QUERIES AND MIXED QUERIES :
+cnf_query = "library or training and services or council"
+dnf_query = "library and training or services and council"
+
+cnf_results = evaluate_cnf_query(inverted_index_no_stopwords, cnf_query)
+dnf_results = evaluate_dnf_query(inverted_index_no_stopwords, dnf_query)
+
+print(f"Results for CNF query '{cnf_query}': {cnf_results}")
+print(f"Results for DNF query '{dnf_query}': {dnf_results}")
+
+"-----------------------------------------------------------------------------------"
+"                                     END                                           "
+"-----------------------------------------------------------------------------------"
+
+
+
+
+
+
+
+
+
+"-----------------------------------------------------------------------------------"
+"""                               INVERTED INDEX                                  """
+"-----------------------------------------------------------------------------------"
+
+class InvertedIndex:
+    def __init__(self, docs):
+        self.docs = docs
+        self.index = {}
+        self._build()
+    def _build(self):
+        """Build inverted index"""
+        for i, doc in enumerate(self.docs):
+            for term in set(doc.lower().split()):
+                if term not in self.index:
+                    self.index[term] = []
+                self.index[term].append(i)
+    def get(self, term):
+        """Get posting list"""
+        return self.index.get(term.lower(), [])
+    def AND(self, list1, list2):
+        """Intersect two sorted lists"""
+        return [x for x in list1 if x in list2]
+    def OR(self, list1, list2):
+        """Union two lists"""
+        return sorted(set(list1 + list2))
+    def NOT(self, posting_list):
+        """Complement of posting list"""
+        all_docs = list(range(len(self.docs)))
+        return [x for x in all_docs if x not in posting_list]
+    def optimize_terms(self, terms, operation='and'):
+        """Sort terms by posting list length for optimal processing"""
+        term_lengths = [(term, len(self.get(term))) for term in terms]
+        if operation == 'and':
+            # For AND: process shortest lists first (fewer intersections)
+            return [term for term, _ in sorted(term_lengths, key=lambda x: x[1])]
+        else:  # OR
+            # For OR: process longest lists first (build result faster)
+            return [term for term, _ in sorted(term_lengths, key=lambda x: x[1], reverse=True)]
+    def search(self, query):
+        """Optimized boolean search"""
+        q = query.lower()
+        if ' and ' in q:
+            terms = [t.strip() for t in q.split(' and ')]
+            # Optimize: shortest posting lists first
+            terms = self.optimize_terms(terms, 'and')
+            result = self.get(terms[0])
+            for term in terms[1:]:
+                result = self.AND(result, self.get(term))
+                if not result:  # Early termination
+                    break
+            return result
+        elif ' or ' in q:
+            terms = [t.strip() for t in q.split(' or ')]
+            # Optimize: longest posting lists first
+            terms = self.optimize_terms(terms, 'or')
+            result = self.get(terms[0])
+            for term in terms[1:]:
+                result = self.OR(result, self.get(term))
+            return result
+        elif ' not ' in q:
+            pos, neg = q.split(' not ')
+            pos_list = self.get(pos.strip())
+            neg_list = self.get(neg.strip())
+            return self.AND(pos_list, self.NOT(neg_list))
         else:
-            result += 4 * f(a)
-    return (h / 3) * result
+            return self.get(q)
+# Usage with optimization demo
+docs = ["cat dog bird", "dog bird", "cat mouse", "bird eagle", "mouse cat"]
+idx = InvertedIndex(docs)
+print("Index:", idx.index)
+# Show optimization in action
+print("\nQuery: 'cat and bird and dog'")
+terms = ['cat', 'bird', 'dog']
+print("Posting list sizes:")
+for term in terms:
+    print(f"  {term}: {len(idx.get(term))} docs")
+optimized = idx.optimize_terms(terms, 'and')
+print(f"Optimized order: {optimized}")  # Shortest first
+print(f"Result: {idx.search('cat and bird and dog')}")
+print(f"\nOR optimization:")
+or_optimized = idx.optimize_terms(terms, 'or')
+print(f"OR order: {or_optimized}")  # Longest first
 
-a, b = -4, 2
-true_value = 0.977249868051821
-points_list = [2001, 4001]
-
-trap_results = []
-simp_results = []
-
-for n in points_list:
-    trap = trapezoidal_rule(standard_normal_pdf, a, b, n)
-    simp = simpsons_rule(standard_normal_pdf, a, b, n)
-    trap_results.append(trap)
-    simp_results.append(simp)
-    print(f"Points = {n}")
-    print(f"  Trapezoidal Rule: {trap:.15f}, Error: {abs(trap - true_value):.10f}")
-    print(f"  Simpson's Rule  : {simp:.15f}, Error: {abs(simp - true_value):.10f}")
-    print()
-
-    x_vals = np.linspace(a, b, n)
-    y_vals = [standard_normal_pdf(x) for x in x_vals]
-    original = np.linspace(a, b, 5000)
-    original_y = [standard_normal_pdf(x) for x in original]
+"-----------------------------------------------------------------------------------"
+"                                     END                                           "
+"-----------------------------------------------------------------------------------"
 
 
----------------------------------------------------------------
 
 
-from sympy import symbols, Function, dsolve, Eq, simplify, expand, lambdify, solve
-import numpy as np
-import matplotlib.pyplot as plt
-from prettytable import PrettyTable
-from scipy.stats import ttest_ind
-
-# Initial values
-x0 = 0
-y0 = 1.0
-h = 0.1
-n = 15
-
-# f(x) = dy/dx
-def f(x,y):
-    return -2*y + x**2
-
-# Euler's Method
-def euler_method(x0, y0, h, n):
-    x_vals = [x0]
-    y_vals = [y0]
-    for i in range(n):
-        y_next = y_vals[-1] + h * f(x_vals[-1],y_vals[-1])
-        x_next = x_vals[-1] + h
-        x_vals.append(x_next)
-        y_vals.append(y_next)
-    return x_vals, y_vals
-
-x = symbols('x')
-y = Function('y')
-ode = Eq(y(x).diff(x), -2*y(x) + x**2)
-sol = dsolve(ode, y(x))
-print(sol)
-
-# Solve for C1 manually
-C1 = symbols('C1')
-rhs_expr = sol.rhs
-print(rhs_expr)
-eq_C1 = Eq(rhs_expr.subs(x, x0), y0)
-print(eq_C1)
-C1_vals = solve(eq_C1, C1)
-
-# Pick valid real positive C1
-C1_val = [c for c in C1_vals if c.is_real and c > 0][0]
-
-# Get particular solution
-sol_expr = rhs_expr.subs(C1, C1_val)
-print(sol_expr)
-sol_expr = simplify(expand(sol_expr))
-print(sol_expr)
-
-# Prepare numerical function
-f_analytical = lambdify(x, sol_expr, 'numpy')
-
-print("="*50)
-print("\tGiven Data")
-print("="*50)
-print("\tx0 : ",x0)
-print("\ty0 : ",y0)
-print("\tStep size : ",h)
-print("\tf'(x) : -2*y + x**2")
-print("="*50)
-
-print("\nAnalytical Solution:")
-print("f(x) = ", sol_expr)
-
-x_values = [x0 + i*h for i in range(n+1)]
-y_true = f_analytical(np.array(x_values))
-
-x_euler, y_euler = euler_method(x0, y0, h, n)
-
-table = PrettyTable()
-table.field_names = ["x", "Analytical", "Euler"]
-for i in range(n+1):
-    table.add_row([
-        round(x_values[i], 3),
-        round(y_true[i], 5),
-        round(y_euler[i], 5),
-    ])
-print()
-print(table)
-
-# T-tests
-t_euler = ttest_ind(y_true, y_euler)
-
-print("\nT-test Interpretation:")
-print("- Euler's Method: p-value =", t_euler.pvalue,"->", "Significant difference" if t_euler.pvalue < 0.05 else "No significant difference")
-
-# Plot
-plt.figure(figsize=(12, 6))
-plt.plot(x_values, y_true, label="Analytical", linewidth=2)
-plt.plot(x_euler, y_euler, '--', label="Euler", alpha=0.7)
-plt.legend()
-plt.xlabel("x")
-plt.ylabel("y")
-plt.title("Comparison of Numerical Methods with Analytical Solution")
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-------------------------------------
 
 
-from sympy import symbols, Function, dsolve, Eq, simplify, expand, lambdify
-import numpy as np
-import matplotlib.pyplot as plt
-from prettytable import PrettyTable
-from scipy.stats import ttest_ind
 
-# Initial values
-x0 = 0
-y0 = 1.0
-h = 0.1
-n = 15
 
-# f(x) = dy/dx
-def f(x,y):
-    return -2*y + x**2
+"-----------------------------------------------------------------------------------"
+"""                         TERM DOCUMENT BOOLEAN MODEL                           """
+"-----------------------------------------------------------------------------------"
 
-# Runge-Kutta 4th Order Method
-def rk4_method(x0, y0, h, n):
-    x_vals = [x0]
-    y_vals = [y0]
-    for i in range(n):
-        x = x_vals[-1]
-        y = y_vals[-1]
-        k1 = f(x,y)
-        k2 = f(x + h/2,y + (k1*h/2))
-        k3 = f(x + h/2,y + (k2*h/2))
-        k4 = f(x + h,y + k3*h)
-        y_next = y + ((k1 + 2*k2 + 2*k3 + k4)*h)/6
-        x_next = x + h
-        x_vals.append(x_next)
-        y_vals.append(y_next)
-    return x_vals, y_vals
+class TermDocumentBooleanModel:
+    def __init__(self, documents):
+        self.documents = documents
+        self.vocab = []
+        self.term_doc_matrix = []
+        self._build_matrix()
+    
+    def _build_matrix(self):
+        """Build term-document matrix"""
+        # Get all unique terms
+        all_terms = set()
+        processed_docs = []
+        
+        for doc in self.documents:
+            tokens = doc.lower().split()
+            processed_docs.append(tokens)
+            all_terms.update(tokens)
+        
+        self.vocab = sorted(all_terms)
+        
+        # Build matrix: rows=terms, cols=documents
+        self.term_doc_matrix = []
+        for term in self.vocab:
+            row = []
+            for doc_tokens in processed_docs:
+                row.append(1 if term in doc_tokens else 0)
+            self.term_doc_matrix.append(row)
+    
+    def get_term_vector(self, term):
+        """Get document vector for a term"""
+        term = term.lower()
+        if term not in self.vocab:
+            return [0] * len(self.documents)
+        
+        term_idx = self.vocab.index(term)
+        return self.term_doc_matrix[term_idx]
+    
+    def boolean_and(self, term1, term2):
+        """Boolean AND operation"""
+        vec1 = self.get_term_vector(term1)
+        vec2 = self.get_term_vector(term2)
+        return [a & b for a, b in zip(vec1, vec2)]
+    
+    def boolean_or(self, term1, term2):
+        """Boolean OR operation"""
+        vec1 = self.get_term_vector(term1)
+        vec2 = self.get_term_vector(term2)
+        return [a | b for a, b in zip(vec1, vec2)]
+    
+    def boolean_not(self, term):
+        """Boolean NOT operation"""
+        vec = self.get_term_vector(term)
+        return [1 - x for x in vec]
+    
+    def search(self, query):
+        """Search with boolean operators"""
+        query = query.lower().strip()
+        
+        # Single term
+        if ' ' not in query:
+            result_vector = self.get_term_vector(query)
+        
+        # AND operation
+        elif ' and ' in query:
+            terms = [t.strip() for t in query.split(' and ')]
+            result_vector = self.get_term_vector(terms[0])
+            for term in terms[1:]:
+                term_vec = self.get_term_vector(term)
+                result_vector = [a & b for a, b in zip(result_vector, term_vec)]
+        
+        # OR operation
+        elif ' or ' in query:
+            terms = [t.strip() for t in query.split(' or ')]
+            result_vector = self.get_term_vector(terms[0])
+            for term in terms[1:]:
+                term_vec = self.get_term_vector(term)
+                result_vector = [a | b for a, b in zip(result_vector, term_vec)]
+        
+        # NOT operation
+        elif ' not ' in query:
+            parts = query.split(' not ')
+            pos_term = parts[0].strip()
+            neg_term = parts[1].strip()
+            
+            pos_vec = self.get_term_vector(pos_term)
+            neg_vec = self.get_term_vector(neg_term)
+            neg_vec = [1 - x for x in neg_vec]  # NOT operation
+            result_vector = [a & b for a, b in zip(pos_vec, neg_vec)]
+        
+        else:
+            result_vector = [0] * len(self.documents)
+        
+        # Return document IDs where result is 1
+        return [i for i, val in enumerate(result_vector) if val == 1]
+    
+    def print_matrix(self):
+        """Print term-document matrix"""
+        print("Term-Document Matrix:")
+        print("Terms\\Docs", end="")
+        for i in range(len(self.documents)):
+            print(f"\tD{i}", end="")
+        print()
+        
+        for i, term in enumerate(self.vocab):
+            print(f"{term:<10}", end="")
+            for val in self.term_doc_matrix[i]:
+                print(f"\t{val}", end="")
+            print()
 
-x = symbols('x')
-y = Function('y')
-ode = Eq(y(x).diff(x), -2*y(x) + x**2)
-sol = dsolve(ode, y(x), ics={y(x0): y0})
-sol_expr = simplify(expand(sol.rhs))
-f_analytical = lambdify(x, sol_expr, 'numpy')
+# Usage Example
+if __name__ == "__main__":
+    # Sample documents
+    docs = [
+        "information retrieval system",
+        "database search query",
+        "information system database",
+        "web search engine",
+        "query processing system"
+    ]
+    
+    model = TermDocumentBooleanModel(docs)
+    model.print_matrix()
+    
+    print("\nSearch Results:")
+    print("'information':", model.search("information"))
+    print("'information and system':", model.search("information and system"))
+    print("'search or query':", model.search("search or query"))
+    print("'system not database':", model.search("system not database"))
 
-print("="*50)
-print("\tGiven Data")
-print("="*50)
-print("\tx0 : ",x0)
-print("\ty0 : ",y0)
-print("\tStep size : ",h)
-print("\tf'(x) : -2*y + x**2")
-print("="*50)
+"-----------------------------------------------------------------------------------"
+"                                     END                                           "
+"-----------------------------------------------------------------------------------"
 
-print("\nAnalytical Solution:")
-print("f(x) = ", sol_expr)
 
-x_values = [x0 + i*h for i in range(n+1)]
-y_true = f_analytical(np.array(x_values))
 
-x_rk4, y_rk4 = rk4_method(x0, y0, h, n)
 
-table = PrettyTable()
-table.field_names = ["x", "Analytical", "RK4"]
-for i in range(n+1):
-    table.add_row([
-        round(x_values[i], 3),
-        round(y_true[i], 5),
-        round(y_rk4[i], 5),
-    ])
-print()
-print(table)
 
-# T-tests
-t_rk4 = ttest_ind(y_true, y_rk4)
 
-print("\nT-test Interpretation:")
-print("- RK4: p-value =", t_rk4.pvalue,"->", "Significant difference" if t_rk4.pvalue < 0.05 else "No significant difference")
+"-----------------------------------------------------------------------------------"
+"""                            VECTOR SPACE MODEL                                """
+"-----------------------------------------------------------------------------------"
 
-# Plot
-plt.figure(figsize=(12, 6))
-plt.plot(x_values, y_true, label="Analytical", linewidth=2)
-plt.plot(x_rk4, y_rk4, '--', label="RK4", alpha=0.7)
-plt.legend()
-plt.xlabel("x")
-plt.ylabel("y")
-plt.title("Comparison of Numerical Methods with Analytical Solution")
-plt.grid(True)
-plt.tight_layout()
-plt.show()
-----------------
+import math
+from collections import Counter
+
+class VectorSpaceModel:
+    def __init__(self, docs):
+        self.docs = docs
+        self.vocab, self.tf_matrix = self._preprocess()
+        self.idf = self._compute_idf()
+        self.tfidf_matrix = self._compute_tfidf()
+    
+    def _preprocess(self):
+        """Integrated preprocessing"""
+        processed = []
+        vocab_set = set()
+        
+        for doc in self.docs:
+            tokens = doc.lower().split()
+            processed.append(tokens)
+            vocab_set.update(tokens)
+        
+        vocab = sorted(vocab_set)
+        
+        # Build TF matrix
+        tf_matrix = []
+        for doc_tokens in processed:
+            counts = Counter(doc_tokens)
+            tf_row = [counts.get(term, 0) for term in vocab]
+            tf_matrix.append(tf_row)
+        
+        print("\n TF-Matrix :\n", tf_matrix, "\n")
+        return vocab, tf_matrix
+    
+    def _compute_idf(self):
+        """IDF calculation"""
+        N = len(self.tf_matrix)
+        idf = []
+        for term_idx in range(len(self.vocab)):
+            df = sum(1 for doc in self.tf_matrix if doc[term_idx] > 0)
+            idf.append(math.log(N / df) if df > 0 else 0)
+        return idf
+    
+    def _compute_tfidf(self):
+        """TF-IDF matrix"""
+        return [[tf * self.idf[i] for i, tf in enumerate(doc)] 
+                for doc in self.tf_matrix]
+    
+    def _query_to_vector(self, query):
+        """Query to TF-IDF vector"""
+        query_tf = Counter(query.lower().split())
+        return [query_tf.get(term, 0) * self.idf[i] 
+                for i, term in enumerate(self.vocab)]
+    
+    def cosine_similarity(self, v1, v2):
+        """Cosine similarity"""
+        dot = sum(a * b for a, b in zip(v1, v2))
+        mag1 = math.sqrt(sum(a * a for a in v1))
+        mag2 = math.sqrt(sum(a * a for a in v2))
+        return dot / (mag1 * mag2) if mag1 and mag2 else 0
+    
+    def jaccard_coefficient(self, v1, v2):
+        """Jaccard coefficient for binary vectors"""
+        # Convert to binary
+        b1 = [1 if x > 0 else 0 for x in v1]
+        b2 = [1 if x > 0 else 0 for x in v2]
+        
+        intersection = sum(a & b for a, b in zip(b1, b2))
+        union = sum(a | b for a, b in zip(b1, b2))
+        
+        return intersection / union if union > 0 else 0
+    
+    def dice_coefficient(self, v1, v2):
+        """Dice coefficient"""
+        b1 = [1 if x > 0 else 0 for x in v1]
+        b2 = [1 if x > 0 else 0 for x in v2]
+        
+        intersection = sum(a & b for a, b in zip(b1, b2))
+        total = sum(b1) + sum(b2)
+        
+        return (2 * intersection) / total if total > 0 else 0
+    
+    def dot_product(self, v1, v2):
+        """Simple dot product"""
+        return sum(a * b for a, b in zip(v1, v2))
+    
+    def search(self, query, similarity='cosine', top_k=5):
+        """Search with different similarity measures"""
+        qvec = self._query_to_vector(query)
+        
+        similarities = []
+        for doc_id, dvec in enumerate(self.tfidf_matrix):
+            if similarity == 'cosine':
+                sim = self.cosine_similarity(qvec, dvec)
+            elif similarity == 'jaccard':
+                sim = self.jaccard_coefficient(qvec, dvec)
+            elif similarity == 'dice':
+                sim = self.dice_coefficient(qvec, dvec)
+            elif similarity == 'dot':
+                sim = self.dot_product(qvec, dvec)
+            else:
+                sim = self.cosine_similarity(qvec, dvec)
+            
+            similarities.append((doc_id, sim))
+        
+        similarities.sort(key=lambda x: x[1], reverse=True)
+        return similarities[:top_k]
+
+# Usage
+docs = ["information retrieval system", "machine learning data", "web search engine"]
+vsm = VectorSpaceModel(docs)
+
+# Different similarity measures
+print("Cosine:", vsm.search("information system", 'cosine'))
+print("Jaccard:", vsm.search("information system", 'jaccard'))
+print("Dice:", vsm.search("information system", 'dice'))
+print("Dot Product:", vsm.search("information system", 'dot'))
+
+"-----------------------------------------------------------------------------------"
+"                                     END                                           "
+"-----------------------------------------------------------------------------------"
+
+
+
+
+
+"-----------------------------------------------------------------------------------"
+"""                                 BIM (BINARY INDEPENDENCE MODEL)                 """
+"-----------------------------------------------------------------------------------"
+
+import math
+
+class BinaryIndependenceModel:
+    def __init__(self, docs):
+        self.docs = docs
+        self.vocab, self.binary_matrix = self._preprocess()
+        self.N_d = len(self.binary_matrix)  # Total documents
+    
+    def _preprocess(self):
+        """Build vocabulary and binary matrix"""
+        processed = [set(doc.lower().split()) for doc in self.docs]
+        vocab = sorted({t for doc in processed for t in doc})
+        binary_matrix = [[int(term in doc) for term in vocab] for doc in processed]
+        return vocab, binary_matrix
+    
+    def _get_dk(self, term_idx):
+        return sum(doc[term_idx] for doc in self.binary_matrix)
+    
+    def _estimate(self, query_terms, relevant_docs=None):
+        """Unified estimation: Phase I (no relevance) or Phase II (with relevance)"""
+        estimates = {}
+        N_r = len(relevant_docs) if relevant_docs else 0
+        
+        for term in query_terms:
+            if term not in self.vocab: 
+                continue
+            term_idx = self.vocab.index(term)
+            d_k = self._get_dk(term_idx)
+            
+            if not relevant_docs:  # Phase I
+                p_k, q_k = 0.5, (d_k + 0.5) / (self.N_d + 1)
+                estimates[term] = {"d_k": d_k, "p_k": p_k, "q_k": q_k}
+            else:  # Phase II
+                r_k = sum(self.binary_matrix[doc_id][term_idx] for doc_id in relevant_docs)
+                p_k = (r_k + 0.5) / (N_r + 1)
+                q_k = (d_k - r_k + 0.5) / (self.N_d - N_r + 1)
+                estimates[term] = {"r_k": r_k, "d_k": d_k, "N_r": N_r, "p_k": p_k, "q_k": q_k}
+        
+        return estimates
+    
+    def calculate_rsv(self, doc_id, query_terms, estimates):
+        rsv = 0
+        for term in query_terms:
+            if term not in estimates: 
+                continue
+            term_idx = self.vocab.index(term)
+            p_k, q_k = estimates[term]["p_k"], estimates[term]["q_k"]
+            
+            if self.binary_matrix[doc_id][term_idx]:  # term in doc
+                if p_k > 0 and q_k > 0:
+                    rsv += math.log(p_k / q_k)
+            else:  # term not in doc
+                if p_k < 1 and q_k < 1:
+                    rsv += math.log((1 - p_k) / (1 - q_k))
+        return rsv
+    
+    def _search(self, query, estimates, top_k):
+        query_terms = query.lower().split()
+        scores = [(doc_id, self.calculate_rsv(doc_id, query_terms, estimates)) for doc_id in range(self.N_d)]
+        return sorted(scores, key=lambda x: x[1], reverse=True)[:top_k]
+    
+    def search_phase1(self, query, top_k=5):
+        return self._search(query, self._estimate(query.lower().split()), top_k)
+    
+    def search_phase2(self, query, relevant_docs, top_k=5):
+        return self._search(query, self._estimate(query.lower().split(), relevant_docs), top_k)
+    
+    def print_estimates(self, query_terms, relevant_docs=None):
+        estimates = self._estimate(query_terms, relevant_docs)
+        if relevant_docs is None:
+            print("=== PHASE I ESTIMATES ===")
+            for t, e in estimates.items():
+                print(f"{t}: d_k={e['d_k']}, p_k={e['p_k']:.3f}, q_k={e['q_k']:.3f}")
+        else:
+            print("=== PHASE II ESTIMATES ===")
+            for t, e in estimates.items():
+                print(f"{t}: r_k={e['r_k']}, d_k={e['d_k']}, N_r={e['N_r']}, p_k={e['p_k']:.3f}, q_k={e['q_k']:.3f}")
+
+# Usage Example
+if __name__ == "__main__":
+    docs = [
+        "information retrieval system",
+        "database search query", 
+        "information system database",
+        "web search engine",
+        "query processing system"
+    ]
+    
+    bim = BinaryIndependenceModel(docs)
+    
+    query = "information system"
+    query_terms = query.split()
+    
+    print("=== PHASE I (No Relevance Info) ===")
+    bim.print_estimates(query_terms)
+    results1 = bim.search_phase1(query)
+    print(f"Phase I Results: {results1}")
+    
+    print("\n=== PHASE II (With Relevance Feedback) ===")
+    relevant_docs = [0, 2]  # Assume docs 0,2 are relevant
+    bim.print_estimates(query_terms, relevant_docs)
+    results2 = bim.search_phase2(query, relevant_docs)
+    print(f"Phase II Results: {results2}")
+
+"-----------------------------------------------------------------------------------"
+"                                     END                                           "
+"-----------------------------------------------------------------------------------"
