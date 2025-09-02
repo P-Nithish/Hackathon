@@ -661,3 +661,256 @@ if __name__ == "__main__":
 "-----------------------------------------------------------------------------------"
 "                                     END                                           "
 "-----------------------------------------------------------------------------------"
+
+
+
+
+
+
+
+import re
+import math
+from collections import Counter
+from typing import List, Tuple, Dict, Set
+
+# Basic text utilities
+
+WORD_RE = re.compile(r"[a-z0-9]+")
+
+def normalize_spaces(s: str) -> str:
+    return " ".join(s.strip().split())
+
+def tokenize(text: str) -> List[str]:
+    return WORD_RE.findall(text.lower())
+
+def title_from_record(record_text: str) -> Tuple[str, str]:
+    # Split into (title, content)
+    txt = record_text.strip()
+    if ":" in txt:
+        title, rest = txt.split(":", 1)
+        return normalize_spaces(title), rest.strip()
+    return "", txt
+
+
+# Similarity functions
+
+def binary_distance(u: str, v: str) -> int:
+    # 0 if identical titles (normalized), else 1
+    def clean(t: str) -> str:
+        return normalize_spaces(re.sub(r"[^a-z0-9 ]", " ", t.lower()))
+    
+    if clean(u) == clean(v):
+        return 0
+    else:
+        return 1
+
+def cosine_sim(vec_a: Dict[str, float], vec_b: Dict[str, float]) -> float:
+    dot = 0.0
+    
+    for term, val in vec_a.items():
+        dot += val * vec_b.get(term, 0.0)
+    
+    na = math.sqrt(sum(v*v for v in vec_a.values()))
+    nb = math.sqrt(sum(v*v for v in vec_b.values()))
+    
+    if na == 0 or nb == 0:
+        return 0.0
+    
+    return dot / (na * nb)
+
+def shingles(tokens: List[str], k: int = 3) -> Set[Tuple[str, ...]]:
+    sh = set()
+    
+    if len(tokens) >= k:
+        for i in range(len(tokens) - k + 1):
+            sh.add(tuple(tokens[i:i+k]))
+    
+    return sh
+
+def jaccard(a: Set[Tuple[str, ...]], b: Set[Tuple[str, ...]]) -> float:
+    if not a and not b:
+        return 1.0
+    
+    if not a or not b:
+        return 0.0
+    
+    inter = len(a.intersection(b))
+    union = len(a.union(b))
+    
+    return inter / union
+
+
+# TF-IDF weighting
+
+def build_tfidf_index(docs_tokens: List[List[str]]):
+    N = len(docs_tokens)
+    df = Counter()
+    
+    for toks in docs_tokens:
+        for term in set(toks):
+            df[term] += 1
+    
+    idf = {}
+    for term, dfk in df.items():
+        idf[term] = math.log((N + 1) / (0.5 + dfk))
+
+    def vectorize(tokens: List[str]) -> Dict[str, float]:
+        tf = Counter(tokens)
+        L = len(tokens) if tokens else 1
+        vec = {}
+        for term, c in tf.items():
+            if term in idf:
+                vec[term] = (c / L) * idf[term]
+            else:
+                vec[term] = (c / L) * math.log((N + 1) / 0.5)
+        return vec
+
+    doc_vecs = []
+    for toks in docs_tokens:
+        doc_vecs.append(vectorize(toks))
+
+    return doc_vecs, vectorize
+
+
+# BM25 scoring
+
+def build_bm25_index(docs_tokens: List[List[str]], k1: float = 1.5, b: float = 0.75):
+    N = len(docs_tokens)
+    avgdl = sum(len(t) for t in docs_tokens) / N if N else 0.0
+    df = Counter()
+    
+    for toks in docs_tokens:
+        for term in set(toks):
+            df[term] += 1
+    
+    idf = {}
+    for t, dfk in df.items():
+        idf[t] = math.log((N - dfk + 0.5) / (dfk + 0.5) + 1.0)
+
+    def score(doc_tokens: List[str], query_tokens: List[str]) -> float:
+        tf = Counter(doc_tokens)
+        L = len(doc_tokens) if doc_tokens else 0
+        
+        if avgdl > 0:
+            denom_norm = k1 * (1 - b + b * (L / avgdl))
+        else:
+            denom_norm = k1
+        
+        s = 0.0
+        for t in set(query_tokens):
+            f = tf.get(t, 0)
+            if f == 0:
+                continue
+            if t in idf:
+                idf_val = idf[t]
+            else:
+                idf_val = math.log((N + 0.5) / 0.5 + 1.0)
+            s += idf_val * (f * (k1 + 1)) / (f + denom_norm)
+        
+        return s
+
+    return score
+
+
+# Main checker
+
+def plagiarism_checker(
+    db_records: List[Tuple[str, str]],
+    new_records: List[Tuple[str, str]],
+    alpha_cos: float = 0.85,
+    beta_jaccard: float = 0.80,
+    tau_bm25: float = 6.0,
+    k_shingle: int = 3
+):
+    # Database preparation
+    db_titles = []
+    db_contents = []
+    db_tokens = []
+    for t, c in db_records:
+        db_titles.append(normalize_spaces(t))
+        db_contents.append(c)
+        db_tokens.append(tokenize(c))
+
+    # Build TF-IDF and BM25
+    doc_vecs, vectorize_query = build_tfidf_index(db_tokens)
+    bm25_score = build_bm25_index(db_tokens)
+
+    # Process each new doc
+    for idx, (new_title, new_content) in enumerate(new_records, start=1):
+        print(f"\n=== Checking new doc {idx} ===")
+        print("Title:", new_title)
+        print("Content:", new_content, "\n")
+
+        new_tokens = tokenize(new_content)
+
+        # A) Title check
+        title_hits = []
+        for i, t in enumerate(db_titles):
+            if binary_distance(t, new_title) == 0:
+                title_hits.append(i)
+        if title_hits:
+            print(f"A) Title exact match → duplicate with DB docs {title_hits}")
+        else:
+            print("A) Title exact match → no")
+
+        # B + C) Cosine similarity
+        qvec = vectorize_query(new_tokens)
+        cos_sims = []
+        for i in range(len(db_tokens)):
+            cos_sims.append((i, cosine_sim(qvec, doc_vecs[i])))
+        cos_sims.sort(key=lambda x: x[1], reverse=True)
+        print("C) Cosine top-3:", cos_sims[:3])
+        print("   Duplicate?", cos_sims[0][1] >= alpha_cos, "(alpha=", alpha_cos, ")")
+
+        # D) Jaccard shingles
+        new_sh = shingles(new_tokens, k_shingle)
+        jac_sims = []
+        for i in range(len(db_tokens)):
+            sim = jaccard(new_sh, shingles(db_tokens[i], k_shingle))
+            jac_sims.append((i, sim))
+        jac_sims.sort(key=lambda x: x[1], reverse=True)
+        print(f"D) Jaccard(k={k_shingle}) top-3:", jac_sims[:3])
+        print("   Duplicate?", jac_sims[0][1] >= beta_jaccard, "(beta=", beta_jaccard, ")")
+
+        # E) BM25
+        bm25_scores = []
+        for i in range(len(db_tokens)):
+            bm25_scores.append((i, bm25_score(db_tokens[i], new_tokens)))
+        bm25_scores.sort(key=lambda x: x[1], reverse=True)
+        print("E) BM25 top-3:", bm25_scores[:3])
+        print("   Duplicate?", bm25_scores[0][1] >= tau_bm25, "(tau=", tau_bm25, ")")
+
+        # Final decision
+        final = (
+            bool(title_hits)
+            or cos_sims[0][1] >= alpha_cos
+            or jac_sims[0][1] >= beta_jaccard
+            or bm25_scores[0][1] >= tau_bm25
+        )
+        print("FINAL decision:", "DUPLICATE" if final else "NOT duplicate")
+
+
+
+db_lines = [
+    "Information requirement: query considers the user feedback as information requirement to search.",
+    "Information retrieval: query depends on the model of information retrieval used.",
+    "Prediction problem: Many problems in information retrieval can be viewed as prediction problems",
+    "Search: A search engine is one of applications of information retrieval models."
+]
+
+db_records = []
+for l in db_lines:
+    db_records.append(title_from_record(l))
+
+new_lines = [
+    "Feedback: feedback is typically used by the system to modify the query and improve prediction",
+    "information retrieval: ranking in information retrieval algorithms depends on user query",
+    "Predictionssss: Many problems in information retrieval can be viewed as prediction problems"
+]
+
+new_records = []
+for l in new_lines:
+    new_records.append(title_from_record(l))
+
+
+plagiarism_checker(db_records, new_records)
